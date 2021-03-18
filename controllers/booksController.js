@@ -5,7 +5,6 @@ const booksController = (Book) =>{
       const {query} = req
       const response = await Book.find(query)
       return res.json(response)
-      
     } catch (error) {
       throw error
     }
