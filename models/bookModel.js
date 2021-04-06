@@ -8,6 +8,10 @@ const bookModel = new Schema(
     author: {type: String},
     genre: {type: String},
     read: {type: Boolean}
+  },
+  
+  {
+    collection : 'books'
   }
 )
 

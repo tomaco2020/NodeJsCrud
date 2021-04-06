@@ -1,27 +1,40 @@
 const express = require('express')
+const validator = require('express-joi-validation').createValidator()
+const booksValidator = require('../validators/booksValidator.js')
 const booksController = require('../controllers/booksController.js')
 
 const routes = (Book) =>{
   const bookRouter = express.Router()
   const controller = booksController(Book)
-  bookRouter.route('/books') 
- 
-  //endpoint de GET que busca todos los documents
-  .get(controller.getBooks)
+  const validation = booksValidator()
+  
+  bookRouter.route('/books')
+    .post(validator.body(validation.bookSchema), 
+      controller.postBook)
 
-  //endpoint de POST (create) crea un recurso en este caso un nuevo registro en la BD
-  .post(controller.postBook)
+    .get(validator.query(validation.querySchema), 
+      controller.getBooks)
+  
+  bookRouter.route('/books/:bookId')
+    .get(validator.params(validation.bookByIdSchema), 
+      controller.getBookId)
 
-  //endpoint de GET (read)que pasa por parametro el Id para buscarlo
-  bookRouter.route('/books/:bookId') 
-  .get(controller.getBookId)
+    .put(validator.params(validation.bookByIdSchema), 
+      validator.body(validation.querySchema), 
+      controller.putBookId) 
 
-  //update que pasa por parametro el Id para buscarlo
-  .put(controller.putBookId) 
+    .delete(validator.params(validation.bookByIdSchema), 
+      controller.deleteBookId)
 
-  .delete(controller.deleteBookId)
+  bookRouter.route('/books/title/:bookTitle') 
+    .get(validator.query(validation.querySchema), 
+      controller.getBookTitle)
 
-    return bookRouter
+  bookRouter.route('/books/author/:bookAuthor') 
+    .get(validator.query(validation.querySchema),
+      controller.getBookAuthor)
+
+  return bookRouter
 }
 
-module.exports = routes //no va con parentesis por q referencia la funcion nada mas
+module.exports = routes

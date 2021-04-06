@@ -1,11 +1,14 @@
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
+
 const usersController = (User) =>{
 
   const getUsers = async (req , res) => {
     try {
       const {query} = req
       const response = await User.find(query)
+
       return res.json(response)
-      
     } catch (error) {
       throw error
     }
@@ -15,46 +18,44 @@ const usersController = (User) =>{
     try {
       const {body} = req
 
+      const saltRound = 10
+      const encryptedPassword = await bcrypt.hash(body.password, saltRound)
+
       const newUserName = () =>{
-          const firstName = body.firstName
-          const lastName = body.lastName
-          const dateOfBirth = body.dateOfBirth
-          const year = new Date (dateOfBirth)
-          const newYear = year.getFullYear()
-          console.log(newYear)
+        const firstName = body.firstName
+        const lastName = body.lastName
+        const dateOfBirth = body.dateOfBirth
+        const year = new Date (dateOfBirth)
+        const newYear = year.getFullYear()
 
-          if (firstName && lastName){
-            const firstNameCharAt = firstName.charAt(0)
+        const firstNameCharAt = firstName.charAt(0)
+        const newUserName = firstNameCharAt+lastName+newYear.toString()
 
-            const newUserName = firstNameCharAt+lastName+newYear.toString()
-            return newUserName.toLowerCase()
-          }
-          else {
-            if (firstName == ""){
-              return res.status(400).json({message:'UserName NO puede ser creado, falta firstName'})
-            }
-            if (lastName == ""){
-              return res.status(400).json({message:'UserName NO puede ser creado, falta lastName'})
-            }
-          }
+        return newUserName.toLowerCase()
       }
 
       const userObject = {
         firstName : body.firstName,
         lastName : body.lastName,
         userName: newUserName(),
-        password: body.password, 
+        password: encryptedPassword, 
         email: body.email,
         address: body.address,
         phone: body.phone,
         dateOfBirth: body.dateOfBirth
       }
 
-      const user = new User(userObject)
-  
-      await user.save()//guarda en la base de datos
-      return res.status(201).json(user)//nos retorna el estado 201 que corresponde al registro fue Creado
-      
+      const foundUser = await User.findOne({userName : userObject.userName})
+
+      if (!foundUser){
+        const user = new User(userObject)
+        await user.save()
+        return res.status(201).json(user)
+      }else{
+        return res.status(202)
+          .json({message: 'The existing userName'})
+      }
+
     } catch (error) {
       throw error
     }
@@ -64,6 +65,27 @@ const usersController = (User) =>{
     try {
       const {params} = req
       const response = await User.findById(params.userId)
+
+      if (!response){
+        return res.status(404).json({message:'The User does not exist'})
+      }
+
+      return res.json(response)
+     
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const getUserName = async (req , res) => {
+    try {
+      const {params} = req
+      const response = await User.find({userName : params.userName})
+
+      if (!response){
+        return res.status(202).json({message:'The User does not exist'})
+      }
+
       return res.json(response)
      
     } catch (error) {
@@ -74,31 +96,21 @@ const usersController = (User) =>{
   const putUserId = async(req , res) => {
     try {
       const {params , body} = req
-      //const {body} = req
 
-        const newUserName = () =>{
+      const saltRound = 10
+      const encryptedPassword = await bcrypt.hash(body.password, saltRound)
+
+      const newUserName = () =>{
         const firstName = body.firstName
         const lastName = body.lastName
         const dateOfBirth = body.dateOfBirth
         const year = new Date (dateOfBirth)
         const newYear = year.getFullYear()
-        console.log(newYear)
+
+        const firstNameCharAt = firstName.charAt(0)
+        const newUserName = firstNameCharAt+lastName+newYear.toString()
         
-
-        if (firstName && lastName){
-          const firstNameCharAt = firstName.charAt(0)
-
-          const newUserName = firstNameCharAt+lastName+newYear.toString()
-          return newUserName.toLowerCase()
-        }
-        else {
-          if (firstName == ""){
-            return res.status(400).json({message:'UserName NO puede ser creado, falta firstName'})
-          }
-          if (lastName == ""){
-            return res.status(400).json({message:'UserName NO puede ser creado, falta lastName'})
-          }
-        }
+        return newUserName.toLowerCase()
       }
   
       const response = await User.updateOne({
@@ -108,7 +120,7 @@ const usersController = (User) =>{
           firstName: body.firstName,
           lastName: body.lastName,
           userName: newUserName(),
-          password: body.password,
+          password: encryptedPassword,
           email: body.email,
           address: body.address,
           phone: body.phone,
@@ -116,7 +128,12 @@ const usersController = (User) =>{
 
         }
       })
-      return res.status(202).json(response) //ejecuta el update y lo devuelve, y le paso el estado del update
+
+      if(response.n==0){
+        return res.status(404).json({message:'Cant update - the User does not exist'}) 
+      }
+
+      return res.status(202).json(response)
     } catch (error) {
       throw error
     } 
@@ -125,8 +142,12 @@ const usersController = (User) =>{
   const deleteUserId = async (req , res) => {
     try {
       const {params} = req
-      console.log(params)
-      await User.findByIdAndDelete(params.userId)
+      const response = await User.findByIdAndDelete(params.userId)
+
+      if (!response){
+        return res.status(404).json({message:'The User does not exist'})
+      }
+      
       return res.status(202).json({message:'The user has been delete successfully'})
       
     } catch (error) {
@@ -134,23 +155,33 @@ const usersController = (User) =>{
     }
   }
 
-  const postLogin = async (req , res) => {
+  const userLogin = async (req , res) => {
     try {
-      const {body} = req //req pide el body que le paso por postman, en este caso userName y Password
-      console.log('body:',body)
-      const foundUser = await User.findOne({"userName" : body.userName})//devuelve a foundUser el user que busca segun el userName del body
-      console.log('fondUser:',foundUser)
+      const {body} = req 
+      const foundUser = await User.findOne({userName : body.userName})
+      
       if (foundUser != null){
+        const isPasswordCorrect = await bcrypt.compare(body.password, foundUser.password)
         
-        if (foundUser.password == body.password){
-          return res.status(202).json({message: 'OK'}) 
+        if (isPasswordCorrect){
+            //gereno token
+            const tokenUser = {
+              firstName : foundUser.firstName,
+              lastName : foundUser.lastName,
+              userName : foundUser.userName
+            }
+            const token = jwt.sign(tokenUser, '714680tlf', {expiresIn: '1h'})
+            return res.status(202)
+              .json({message: 'OK', token: token}) 
+            
+        }else {
+          return res.status(404)
+            .json({message: 'Invalid Credential'})
         }
-        else{
-          return res.status(202).json({message: 'Invalid Credentials'})
-        }
-      }
-      else{
-        return res.status(202).json({message: 'User does not exist'})
+
+      }else {
+        return res.status(404)
+          .json({message: 'Invalid Credential'})
       }
       
     } catch (error) {
@@ -158,7 +189,7 @@ const usersController = (User) =>{
     }
   }
 
-  return {getUsers, postUser, getUserId, putUserId, deleteUserId, postLogin}
+  return {getUsers, postUser, getUserId, getUserName, putUserId, deleteUserId, userLogin}
 }
 
 module.exports = usersController

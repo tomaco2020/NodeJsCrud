@@ -12,10 +12,16 @@ const booksController = (Book) =>{
 
   const postBook = async (req , res) => {
     try {
-      const book = new Book(req.body)
-  
-      await book.save()//guarda en la base de datos
-      return res.status(201).json(book)//nos retorna el estado 201 que corresponde al registro fue Creado
+      const newBook = await Book.findOne({title : req.body.title})
+      
+      if (!newBook){
+        const book = new Book(req.body)
+        await book.save()
+        return res.status(201).json(book)
+      } else{
+        return res.status(202)
+        .json({message: newBook.title + ' - the existing Book'})
+      }
       
     } catch (error) {
       throw error
@@ -26,6 +32,34 @@ const booksController = (Book) =>{
     try {
       const {params} = req
       const response = await Book.findById(params.bookId)
+
+      if (!response){
+        return res.status(202).json({message:'The book does not exist'})
+      }
+
+      return res.json(response)
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const getBookTitle = async (req , res) => {
+    try {
+      const {params} = req
+      const response = await Book.find({title : params.bookTitle})
+
+      return res.json(response)
+      
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const getBookAuthor = async (req , res) => {
+    try {
+      const {params} = req
+      const response = await Book.find({author : params.bookAuthor})
+
       return res.json(response)
      
     } catch (error) {
@@ -36,19 +70,24 @@ const booksController = (Book) =>{
   const putBookId = async(req , res) => {
     try {
       const {params , body} = req
-      //const {body} = req
-  
+
       const response = await Book.updateOne({
         _id: params.bookId
       }, {
         $set: {
           title: body.title,
-          genre: body.genre,
           author: body.author,
+          genre: body.genre,
           read: body.read
         }
       })
-      return res.status(202).json(response) //ejecuta el update y lo devuelve, y le paso el estado del update
+
+      if(response.n==0){
+        return res.status(404).json({message:'Cant update - the book does not exist'}) 
+      }
+      
+      return res.status(202).json(response)
+
     } catch (error) {
       throw error
     } 
@@ -57,8 +96,13 @@ const booksController = (Book) =>{
   const deleteBookId = async (req , res) => {
     try {
       const {params} = req
-      console.log(params)
-      await Book.findByIdAndDelete(params.bookId)
+      
+      const response = await Book.findByIdAndDelete(params.bookId)
+
+      if (!response){
+        return res.status(404).json({message:'The book does not exist'})
+      }
+      
       return res.status(202).json({message:'The book has been delete successfully'})
       
     } catch (error) {
@@ -66,7 +110,7 @@ const booksController = (Book) =>{
     }
   }
 
-  return {getBooks, postBook, getBookId, putBookId, deleteBookId}
+  return {getBooks, postBook, getBookId, getBookTitle, getBookAuthor, putBookId, deleteBookId}
 }
 
 module.exports = booksController
