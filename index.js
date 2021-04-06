@@ -22,7 +22,7 @@ const app = express()
 
 app.use(bodyParser.urlencoded({ extended: true}))
 app.use(bodyParser.json())
-//app.all("/api/*", jwt({secret: "714680tlf", algorithms: ["HS256"]}).unless({ path : ["/api/login"]}))
+app.all("/api/*", jwt({secret: "714680tlf", algorithms: ["HS256"]}).unless({ path : ["/api/login"]}))
 app.use('/api', bookRouter)
 app.use('/api', userRouter)
 
