@@ -158,17 +158,17 @@ const usersController = (User) =>{
   const userLogin = async (req , res) => {
     try {
       const {body} = req 
-      const foundUser = await User.findOne({userName : body.userName})
+      const newUser = await User.findOne({userName : body.userName})
       
-      if (foundUser != null){
-        const isPasswordCorrect = await bcrypt.compare(body.password, foundUser.password)
+      if (newUser != null){
+        const isPasswordCorrect = await bcrypt.compare(body.password, newUser.password)
         
         if (isPasswordCorrect){
             //gereno token
             const tokenUser = {
-              firstName : foundUser.firstName,
-              lastName : foundUser.lastName,
-              userName : foundUser.userName
+              firstName : newUser.firstName,
+              lastName : newUser.lastName,
+              userName : newUser.userName
             }
             const token = jwt.sign(tokenUser, '714680tlf', {expiresIn: '1h'})
             return res.status(202)
